@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import OpenAI from 'openai';
+import { unstable_cache } from 'next/cache';
 
 const NAVER_API_URL = 'https://openapi.naver.com/v1/search/news.json';
 const SEARCH_KEYWORDS = ['환율', '달러', '원화', '금리', '한국은행'];
+const CACHE_TAG = 'exchange-rate-analysis';
 
 interface NaverNewsItem {
   title: string;
@@ -254,73 +256,111 @@ ${newsText}
   };
 }
 
-export async function GET() {
+// 뉴스 분석 실행 함수 (캐싱 대상)
+async function performAnalysis(): Promise<AnalysisResult> {
   console.log(`\n${'='.repeat(60)}`);
-  console.log(`[Analyze API] 시작 - ${new Date().toISOString()}`);
+  console.log(`[Analyze] 새로운 분석 시작 - ${new Date().toISOString()}`);
   console.log(`${'='.repeat(60)}`);
 
+  // 1. 뉴스 검색
+  console.log(`[Step 1] 네이버 뉴스 검색 중...`);
+  const startTime = Date.now();
+  const newsPromises = SEARCH_KEYWORDS.map(keyword => fetchNews(keyword));
+  const newsResults = await Promise.all(newsPromises);
+
+  const allNews = newsResults.flat();
+  const uniqueNews = Array.from(
+    new Map(allNews.map(item => [item.link, item])).values()
+  );
+  console.log(`[Step 1] 완료 - ${uniqueNews.length}개 뉴스 (${Date.now() - startTime}ms)`);
+
+  // 2. 크롤링
+  console.log(`[Step 2] 뉴스 본문 크롤링 중...`);
+  const crawlStartTime = Date.now();
+  const crawledNews: CrawledNewsItem[] = [];
+
+  const batchSize = 5;
+  for (let i = 0; i < uniqueNews.length; i += batchSize) {
+    const batch = uniqueNews.slice(i, i + batchSize);
+    const crawlPromises = batch.map(async (news) => {
+      const crawled = await crawlNaverNews(news.link);
+      return {
+        title: stripHtml(news.title),
+        description: stripHtml(news.description),
+        content: crawled?.content || '',
+        source: crawled?.source || '',
+        url: news.link,
+        publishedAt: news.pubDate,
+        isCrawled: !!crawled?.content,
+        thumbnail: crawled?.thumbnail || '',
+      };
+    });
+    const results = await Promise.all(crawlPromises);
+    crawledNews.push(...results);
+  }
+
+  const crawledCount = crawledNews.filter(n => n.isCrawled).length;
+  console.log(`[Step 2] 완료 - ${crawledCount}/${crawledNews.length}개 크롤링 (${Date.now() - crawlStartTime}ms)`);
+
+  // 3. OpenAI 분석
+  console.log(`[Step 3] OpenAI 분석 중...`);
+  const analyzeStartTime = Date.now();
+
+  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your_openai_api_key_here') {
+    throw new Error('OpenAI API key not configured');
+  }
+
+  const analysis = await analyzeWithOpenAI(crawledNews);
+  console.log(`[Step 3] 완료 - (${Date.now() - analyzeStartTime}ms)`);
+
+  const totalDuration = Date.now() - startTime;
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`[Analyze] 완료 - 총 소요시간: ${totalDuration}ms`);
+  console.log(`${'='.repeat(60)}\n`);
+
+  return analysis;
+}
+
+// unstable_cache로 캐싱된 분석 함수 (10분 TTL)
+const getCachedAnalysis = unstable_cache(
+  performAnalysis,
+  [CACHE_TAG],
+  {
+    revalidate: 600, // 10분
+    tags: [CACHE_TAG],
+  }
+);
+
+export async function GET(request: Request) {
+  // 강제 새로고침 쿼리 파라미터 확인
+  const { searchParams } = new URL(request.url);
+  const forceRefresh = searchParams.get('refresh') === 'true';
+
   try {
-    // 1. 뉴스 검색
-    console.log(`[Step 1] 네이버 뉴스 검색 중...`);
     const startTime = Date.now();
-    const newsPromises = SEARCH_KEYWORDS.map(keyword => fetchNews(keyword));
-    const newsResults = await Promise.all(newsPromises);
+    let analysis: AnalysisResult;
+    let isCached = false;
 
-    const allNews = newsResults.flat();
-    const uniqueNews = Array.from(
-      new Map(allNews.map(item => [item.link, item])).values()
-    );
-    console.log(`[Step 1] 완료 - ${uniqueNews.length}개 뉴스 (${Date.now() - startTime}ms)`);
-
-    // 2. 크롤링
-    console.log(`[Step 2] 뉴스 본문 크롤링 중...`);
-    const crawlStartTime = Date.now();
-    const crawledNews: CrawledNewsItem[] = [];
-
-    const batchSize = 5;
-    for (let i = 0; i < uniqueNews.length; i += batchSize) {
-      const batch = uniqueNews.slice(i, i + batchSize);
-      const crawlPromises = batch.map(async (news) => {
-        const crawled = await crawlNaverNews(news.link);
-        return {
-          title: stripHtml(news.title),
-          description: stripHtml(news.description),
-          content: crawled?.content || '',
-          source: crawled?.source || '',
-          url: news.link,
-          publishedAt: news.pubDate,
-          isCrawled: !!crawled?.content,
-          thumbnail: crawled?.thumbnail || '',
-        };
-      });
-      const results = await Promise.all(crawlPromises);
-      crawledNews.push(...results);
+    if (forceRefresh) {
+      // 강제 새로고침: 캐시 우회하고 직접 분석 실행
+      console.log('[Analyze API] 강제 새로고침 - 캐시 우회');
+      analysis = await performAnalysis();
+    } else {
+      // 일반 요청: 캐시된 결과 사용
+      analysis = await getCachedAnalysis();
+      const duration = Date.now() - startTime;
+      isCached = duration < 1000; // 빠른 응답이면 캐시 히트로 판단
     }
 
-    const crawledCount = crawledNews.filter(n => n.isCrawled).length;
-    console.log(`[Step 2] 완료 - ${crawledCount}/${crawledNews.length}개 크롤링 (${Date.now() - crawlStartTime}ms)`);
-
-    // 3. OpenAI 분석
-    console.log(`[Step 3] OpenAI 분석 중...`);
-    const analyzeStartTime = Date.now();
-
-    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your_openai_api_key_here') {
-      throw new Error('OpenAI API key not configured');
-    }
-
-    const analysis = await analyzeWithOpenAI(crawledNews);
-    console.log(`[Step 3] 완료 - (${Date.now() - analyzeStartTime}ms)`);
-
-    const totalDuration = Date.now() - startTime;
-    console.log(`\n${'='.repeat(60)}`);
-    console.log(`[Analyze API] 완료 - 총 소요시간: ${totalDuration}ms`);
-    console.log(`${'='.repeat(60)}\n`);
+    const duration = Date.now() - startTime;
+    console.log(`[Analyze API] 응답 완료 - ${isCached ? '캐시 히트' : '새로 생성'} (${duration}ms)`);
 
     return NextResponse.json({
       success: true,
       data: analysis,
+      cached: isCached,
       timing: {
-        total: totalDuration,
+        total: duration,
       },
     });
   } catch (error) {
