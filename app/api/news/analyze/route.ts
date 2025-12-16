@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import OpenAI from 'openai';
 
 const NAVER_API_URL = 'https://openapi.naver.com/v1/search/news.json';
-const SEARCH_KEYWORDS = ['환율', '달러', '원화', '금리'];
+const SEARCH_KEYWORDS = ['환율', '달러', '원화', '금리', '한국은행'];
 
 interface NaverNewsItem {
   title: string;
@@ -29,6 +29,7 @@ interface CrawledNewsItem {
   url: string;
   publishedAt: string;
   isCrawled: boolean;
+  thumbnail: string;
 }
 
 interface AnalysisResult {
@@ -62,6 +63,7 @@ interface AnalysisResult {
     title: string;
     source: string;
     url: string;
+    thumbnail: string;
   }[];
   generatedAt: string;
   newsCount: number;
@@ -83,6 +85,7 @@ function stripHtml(html: string): string {
 async function crawlNaverNews(url: string): Promise<{
   content: string;
   source: string;
+  thumbnail: string;
 } | null> {
   if (!url.includes('news.naver.com')) {
     return null;
@@ -108,9 +111,12 @@ async function crawlNaverNews(url: string): Promise<{
     const source = $('.media_end_head_top_logo img').attr('alt') ||
                    $('meta[property="og:article:author"]').attr('content') || '';
 
+    const thumbnail = $('meta[property="og:image"]').attr('content') || '';
+
     return {
       content: content.trim().substring(0, 3000),
       source: source.trim(),
+      thumbnail: thumbnail.trim(),
     };
   } catch {
     return null;
@@ -241,6 +247,7 @@ ${newsText}
       title: n.title,
       source: n.source,
       url: n.url,
+      thumbnail: n.thumbnail,
     })),
     generatedAt: new Date().toISOString(),
     newsCount: crawledNews.length,
@@ -283,6 +290,7 @@ export async function GET() {
           url: news.link,
           publishedAt: news.pubDate,
           isCrawled: !!crawled?.content,
+          thumbnail: crawled?.thumbnail || '',
         };
       });
       const results = await Promise.all(crawlPromises);

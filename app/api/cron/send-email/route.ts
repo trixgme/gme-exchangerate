@@ -86,7 +86,7 @@ function generateEmailHtml(analysis: {
     riskFactors: string[];
   };
   investmentTip: string;
-  sources: { title: string; source: string; url: string }[];
+  sources: { title: string; source: string; url: string; thumbnail: string }[];
   generatedAt: string;
   newsCount: number;
 }): string {
@@ -289,16 +289,21 @@ function generateEmailHtml(analysis: {
           <tr>
             <td style="padding: 0 24px 24px;">
               <h3 style="margin: 0 0 16px; font-size: 16px; color: #1a1a1a;">📰 참고 뉴스 (${analysis.sources.length}개)</h3>
-              <div style="background-color: #f9f9f9; border-radius: 8px; padding: 16px; max-height: 300px; overflow-y: auto;">
+              <div style="background-color: #f9f9f9; border-radius: 8px; padding: 16px;">
                 ${analysis.sources.slice(0, 15).map((source, index) => `
-                  <div style="padding: 8px 0; ${index < analysis.sources.slice(0, 15).length - 1 ? 'border-bottom: 1px solid #e5e5e5;' : ''}">
-                    <a href="${source.url}" target="_blank" style="text-decoration: none; color: #1a1a1a;">
-                      <p style="margin: 0 0 4px; font-size: 13px; font-weight: 500; line-height: 1.4; color: #1a1a1a;">
-                        ${source.title}
-                      </p>
-                      <p style="margin: 0; font-size: 11px; color: #6b7280;">
-                        ${source.source || '언론사 정보 없음'}
-                      </p>
+                  <div style="padding: 10px 0; ${index < analysis.sources.slice(0, 15).length - 1 ? 'border-bottom: 1px solid #e5e5e5;' : ''}">
+                    <a href="${source.url}" target="_blank" style="text-decoration: none; color: #1a1a1a; display: flex; gap: 12px;">
+                      ${source.thumbnail ? `
+                        <img src="${source.thumbnail}" alt="" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; flex-shrink: 0;" />
+                      ` : ''}
+                      <div style="flex: 1; min-width: 0;">
+                        <p style="margin: 0 0 4px; font-size: 13px; font-weight: 500; line-height: 1.4; color: #1a1a1a;">
+                          ${source.title}
+                        </p>
+                        <p style="margin: 0; font-size: 11px; color: #6b7280;">
+                          ${source.source || '언론사 정보 없음'}
+                        </p>
+                      </div>
                     </a>
                   </div>
                 `).join('')}

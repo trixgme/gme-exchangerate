@@ -43,6 +43,7 @@ interface AnalysisResult {
     title: string;
     source: string;
     url: string;
+    thumbnail: string;
   }[];
   generatedAt: string;
   newsCount: number;
@@ -376,22 +377,31 @@ export default function Home() {
             </div>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[200px] pr-4">
-              <div className="space-y-2">
+            <ScrollArea className="h-[300px] pr-4">
+              <div className="space-y-3">
                 {analysis.sources.map((source, index) => (
                   <a
                     key={index}
                     href={source.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block p-2 rounded-md hover:bg-muted transition-colors"
+                    className="flex gap-3 p-2 rounded-md hover:bg-muted transition-colors"
                   >
-                    <p className="text-sm font-medium line-clamp-1 hover:text-primary">
-                      {source.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {source.source || '언론사 정보 없음'}
-                    </p>
+                    {source.thumbnail && (
+                      <img
+                        src={source.thumbnail}
+                        alt=""
+                        className="w-16 h-16 object-cover rounded flex-shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium line-clamp-2 hover:text-primary">
+                        {source.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {source.source || '언론사 정보 없음'}
+                      </p>
+                    </div>
                   </a>
                 ))}
               </div>
