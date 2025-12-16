@@ -10,6 +10,17 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+interface ExchangeRate {
+  currency: string;
+  currencyCode: string;
+  rate: number;
+  change: number;
+  changePercent: number;
+  trend: 'up' | 'down' | 'stable';
+  chartUrl: string;
+  time: string;
+}
+
 interface MarketFactor {
   factor: string;
   impact: 'positive' | 'negative' | 'neutral';
@@ -71,9 +82,27 @@ export default function Home() {
   const [loadingStep, setLoadingStep] = useState<LoadingStep>('idle');
   const [progress, setProgress] = useState(0);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
+  const [exchangeRateTime, setExchangeRateTime] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // 환율 정보 가져오기 (별도로 빠르게 로드)
+    async function fetchExchangeRates() {
+      try {
+        const response = await fetch('/api/exchange-rate');
+        const data = await response.json();
+        if (data.success && data.data) {
+          setExchangeRates(data.data.rates);
+          if (data.data.rates.length > 0) {
+            setExchangeRateTime(data.data.rates[0].time);
+          }
+        }
+      } catch (err) {
+        console.error('환율 정보 로드 실패:', err);
+      }
+    }
+
     async function fetchAnalysis() {
       try {
         setLoadingStep('fetching');
@@ -110,6 +139,7 @@ export default function Home() {
       }
     }
 
+    fetchExchangeRates();
     fetchAnalysis();
   }, []);
 
@@ -199,6 +229,47 @@ export default function Home() {
 
       {/* 메인 콘텐츠 */}
       <main className="container max-w-4xl mx-auto px-4 py-6 space-y-6">
+
+        {/* 실시간 환율 */}
+        {exchangeRates.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">실시간 환율</CardTitle>
+                <span className="text-xs text-muted-foreground">{exchangeRateTime} 기준</span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {exchangeRates.map((rate) => (
+                  <div
+                    key={rate.currencyCode}
+                    className="rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {rate.currencyCode}
+                      </span>
+                      <Badge
+                        variant={rate.trend === 'up' ? 'destructive' : rate.trend === 'down' ? 'default' : 'secondary'}
+                        className="text-[10px] px-1 py-0"
+                      >
+                        {rate.trend === 'up' ? '▲' : rate.trend === 'down' ? '▼' : '-'}
+                        {Math.abs(rate.change).toFixed(2)}
+                      </Badge>
+                    </div>
+                    <p className="text-lg font-bold tabular-nums">
+                      {rate.rate.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {rate.currency}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* 요약 카드 */}
         <Card>

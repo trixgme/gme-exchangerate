@@ -87,6 +87,15 @@ function generateEmailHtml(analysis: {
   };
   investmentTip: string;
   sources: { title: string; source: string; url: string; thumbnail: string }[];
+  currentRate?: {
+    usd: number;
+    usdChange: number;
+    usdTrend: 'up' | 'down' | 'stable';
+    jpy: number;
+    eur: number;
+    cny: number;
+    time: string;
+  };
   generatedAt: string;
   newsCount: number;
 }): string {
@@ -108,6 +117,56 @@ function generateEmailHtml(analysis: {
     if (impact === 'negative') return '#ef4444';
     return '#6b7280';
   };
+
+  const trendColor = (trend: 'up' | 'down' | 'stable') => {
+    if (trend === 'up') return '#ef4444';
+    if (trend === 'down') return '#3b82f6';
+    return '#6b7280';
+  };
+
+  const trendArrow = (trend: 'up' | 'down' | 'stable') => {
+    if (trend === 'up') return '▲';
+    if (trend === 'down') return '▼';
+    return '-';
+  };
+
+  // 환율 정보 HTML 생성
+  const exchangeRateHtml = analysis.currentRate && analysis.currentRate.usd > 0 ? `
+          <!-- 실시간 환율 -->
+          <tr>
+            <td style="padding: 0 24px 24px;">
+              <div style="background-color: #f0fdf4; border-radius: 8px; padding: 16px; border: 1px solid #bbf7d0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                  <h3 style="margin: 0; font-size: 14px; color: #166534;">💱 실시간 환율</h3>
+                  <span style="font-size: 11px; color: #6b7280;">${analysis.currentRate.time} 기준</span>
+                </div>
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td width="25%" style="text-align: center; padding: 8px;">
+                      <p style="margin: 0 0 4px; font-size: 11px; color: #6b7280;">USD</p>
+                      <p style="margin: 0 0 4px; font-size: 18px; font-weight: 700; color: #1a1a1a;">${analysis.currentRate.usd.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      <p style="margin: 0; font-size: 11px; color: ${trendColor(analysis.currentRate.usdTrend)}; font-weight: 600;">
+                        ${trendArrow(analysis.currentRate.usdTrend)} ${Math.abs(analysis.currentRate.usdChange).toFixed(2)}
+                      </p>
+                    </td>
+                    <td width="25%" style="text-align: center; padding: 8px; border-left: 1px solid #e5e5e5;">
+                      <p style="margin: 0 0 4px; font-size: 11px; color: #6b7280;">JPY (100)</p>
+                      <p style="margin: 0; font-size: 18px; font-weight: 700; color: #1a1a1a;">${analysis.currentRate.jpy.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    </td>
+                    <td width="25%" style="text-align: center; padding: 8px; border-left: 1px solid #e5e5e5;">
+                      <p style="margin: 0 0 4px; font-size: 11px; color: #6b7280;">EUR</p>
+                      <p style="margin: 0; font-size: 18px; font-weight: 700; color: #1a1a1a;">${analysis.currentRate.eur.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    </td>
+                    <td width="25%" style="text-align: center; padding: 8px; border-left: 1px solid #e5e5e5;">
+                      <p style="margin: 0 0 4px; font-size: 11px; color: #6b7280;">CNY</p>
+                      <p style="margin: 0; font-size: 18px; font-weight: 700; color: #1a1a1a;">${analysis.currentRate.cny.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    </td>
+                  </tr>
+                </table>
+              </div>
+            </td>
+          </tr>
+  ` : '';
 
   return `
 <!DOCTYPE html>
@@ -132,6 +191,8 @@ function generateEmailHtml(analysis: {
               </p>
             </td>
           </tr>
+
+          ${exchangeRateHtml}
 
           <!-- 제목 & 요약 -->
           <tr>
