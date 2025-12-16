@@ -127,7 +127,7 @@ async function fetchNews(query: string): Promise<NaverNewsItem[]> {
 
   const params = new URLSearchParams({
     query,
-    display: '30',
+    display: '50',
     start: '1',
     sort: 'date',
   });
