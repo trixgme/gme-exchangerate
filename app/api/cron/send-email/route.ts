@@ -39,7 +39,7 @@ export async function GET(request: Request) {
     // 3. 이메일 발송
     const { data, error } = await resend.emails.send({
       from: process.env.EMAIL_FROM || 'Exchange Rate <noreply@yourdomain.com>',
-      to: process.env.EMAIL_TO?.split(',') || [],
+      to: process.env.EMAIL_TO?.split(',').map(email => email.trim()).filter(Boolean) || [],
       subject: `[환율 브리핑] ${analysis.title}`,
       html: emailHtml,
     });
