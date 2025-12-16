@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 // Vercel Cron 인증
 export async function GET(request: Request) {
   // Cron 인증 확인 (Vercel Cron에서 호출 시)
@@ -16,6 +14,13 @@ export async function GET(request: Request) {
 
   try {
     console.log('[Cron] 환율 브리핑 이메일 발송 시작...');
+
+    // Resend API 키 확인
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY is not configured');
+    }
+
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
     // 1. 분석 API 호출
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
