@@ -161,18 +161,57 @@ function generateEmailHtml(analysis: {
                     <div style="background-color: #f9f9f9; border-radius: 8px; padding: 16px;">
                       <h3 style="margin: 0 0 12px; font-size: 14px; color: #6b7280; text-transform: uppercase;">시장 심리</h3>
                       <p style="margin: 0 0 8px; font-size: 16px; font-weight: 600;">${sentimentEmoji}</p>
-                      <p style="margin: 0; font-size: 13px; color: #4a4a4a; line-height: 1.5;">
+                      <p style="margin: 0 0 12px; font-size: 13px; color: #4a4a4a; line-height: 1.5;">
                         ${analysis.sentiment.description}
                       </p>
+                      <!-- 시장 심리 비율 -->
+                      <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e5e5;">
+                        <div style="margin-bottom: 8px;">
+                          <div style="display: flex; justify-content: space-between; font-size: 11px; color: #6b7280; margin-bottom: 4px;">
+                            <span>긍정</span>
+                            <span>${analysis.sentiment.breakdown.positive}%</span>
+                          </div>
+                          <div style="background-color: #e5e5e5; border-radius: 4px; height: 6px; overflow: hidden;">
+                            <div style="background-color: #22c55e; height: 100%; width: ${analysis.sentiment.breakdown.positive}%;"></div>
+                          </div>
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                          <div style="display: flex; justify-content: space-between; font-size: 11px; color: #6b7280; margin-bottom: 4px;">
+                            <span>부정</span>
+                            <span>${analysis.sentiment.breakdown.negative}%</span>
+                          </div>
+                          <div style="background-color: #e5e5e5; border-radius: 4px; height: 6px; overflow: hidden;">
+                            <div style="background-color: #ef4444; height: 100%; width: ${analysis.sentiment.breakdown.negative}%;"></div>
+                          </div>
+                        </div>
+                        <div>
+                          <div style="display: flex; justify-content: space-between; font-size: 11px; color: #6b7280; margin-bottom: 4px;">
+                            <span>중립</span>
+                            <span>${analysis.sentiment.breakdown.neutral}%</span>
+                          </div>
+                          <div style="background-color: #e5e5e5; border-radius: 4px; height: 6px; overflow: hidden;">
+                            <div style="background-color: #6b7280; height: 100%; width: ${analysis.sentiment.breakdown.neutral}%;"></div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </td>
                   <td width="48%" style="vertical-align: top; padding-left: 12px;">
                     <div style="background-color: #f9f9f9; border-radius: 8px; padding: 16px;">
                       <h3 style="margin: 0 0 12px; font-size: 14px; color: #6b7280; text-transform: uppercase;">환율 전망</h3>
                       <p style="margin: 0 0 8px; font-size: 16px; font-weight: 600;">${directionEmoji}</p>
-                      <p style="margin: 0; font-size: 13px; color: #4a4a4a; line-height: 1.5;">
-                        <strong>단기:</strong> ${analysis.exchangeOutlook.shortTerm}
-                      </p>
+                      <div style="margin-bottom: 12px;">
+                        <p style="margin: 0 0 4px; font-size: 12px; font-weight: 600; color: #1a1a1a;">단기 (1주일)</p>
+                        <p style="margin: 0; font-size: 13px; color: #4a4a4a; line-height: 1.5;">
+                          ${analysis.exchangeOutlook.shortTerm}
+                        </p>
+                      </div>
+                      <div>
+                        <p style="margin: 0 0 4px; font-size: 12px; font-weight: 600; color: #1a1a1a;">중기 (1개월)</p>
+                        <p style="margin: 0; font-size: 13px; color: #4a4a4a; line-height: 1.5;">
+                          ${analysis.exchangeOutlook.midTerm}
+                        </p>
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -242,6 +281,32 @@ function generateEmailHtml(analysis: {
                 <p style="margin: 0; font-size: 14px; line-height: 1.6; opacity: 0.9;">
                   ${analysis.investmentTip}
                 </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- 참고 뉴스 -->
+          <tr>
+            <td style="padding: 0 24px 24px;">
+              <h3 style="margin: 0 0 16px; font-size: 16px; color: #1a1a1a;">📰 참고 뉴스 (${analysis.sources.length}개)</h3>
+              <div style="background-color: #f9f9f9; border-radius: 8px; padding: 16px; max-height: 300px; overflow-y: auto;">
+                ${analysis.sources.slice(0, 15).map((source, index) => `
+                  <div style="padding: 8px 0; ${index < analysis.sources.slice(0, 15).length - 1 ? 'border-bottom: 1px solid #e5e5e5;' : ''}">
+                    <a href="${source.url}" target="_blank" style="text-decoration: none; color: #1a1a1a;">
+                      <p style="margin: 0 0 4px; font-size: 13px; font-weight: 500; line-height: 1.4; color: #1a1a1a;">
+                        ${source.title}
+                      </p>
+                      <p style="margin: 0; font-size: 11px; color: #6b7280;">
+                        ${source.source || '언론사 정보 없음'}
+                      </p>
+                    </a>
+                  </div>
+                `).join('')}
+                ${analysis.sources.length > 15 ? `
+                  <p style="margin: 12px 0 0; font-size: 12px; color: #6b7280; text-align: center;">
+                    외 ${analysis.sources.length - 15}개 뉴스 더보기...
+                  </p>
+                ` : ''}
               </div>
             </td>
           </tr>
