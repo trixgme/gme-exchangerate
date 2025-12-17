@@ -319,9 +319,9 @@ async function analyzeWithOpenAI(news: CrawledNewsItem[], currentRate: ExchangeR
   // 크롤링된 뉴스만 필터링
   const crawledNews = news.filter(n => n.isCrawled && n.content);
 
-  // GPT-4o 128K 토큰 지원 → 최대 50개 뉴스, 본문 1000자씩 분석
-  const MAX_NEWS_FOR_ANALYSIS = 50;
-  const MAX_CONTENT_LENGTH = 1000;
+  // GPT-4o 128K 토큰 지원 → 최대 80개 뉴스, 본문 1500자씩 분석
+  const MAX_NEWS_FOR_ANALYSIS = 80;
+  const MAX_CONTENT_LENGTH = 1500;
 
   // 뉴스 본문 합치기
   const newsForAnalysis = crawledNews.slice(0, MAX_NEWS_FOR_ANALYSIS);
