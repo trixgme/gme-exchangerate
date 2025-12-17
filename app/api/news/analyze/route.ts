@@ -319,13 +319,17 @@ async function analyzeWithOpenAI(news: CrawledNewsItem[], currentRate: ExchangeR
   // 크롤링된 뉴스만 필터링
   const crawledNews = news.filter(n => n.isCrawled && n.content);
 
+  // GPT-4o 128K 토큰 지원 → 최대 50개 뉴스, 본문 1000자씩 분석
+  const MAX_NEWS_FOR_ANALYSIS = 50;
+  const MAX_CONTENT_LENGTH = 1000;
+
   // 뉴스 본문 합치기
-  const newsText = crawledNews
-    .slice(0, 30)
-    .map((n, i) => `[뉴스 ${i + 1}] ${n.title}\n${n.content.substring(0, 800)}`)
+  const newsForAnalysis = crawledNews.slice(0, MAX_NEWS_FOR_ANALYSIS);
+  const newsText = newsForAnalysis
+    .map((n, i) => `[뉴스 ${i + 1}] ${n.title}\n${n.content.substring(0, MAX_CONTENT_LENGTH)}`)
     .join('\n\n');
 
-  console.log(`[OpenAI GPT-4o] 분석 시작 - ${crawledNews.length}개 뉴스`);
+  console.log(`[OpenAI GPT-4o] 분석 시작 - ${newsForAnalysis.length}개 뉴스 (전체 ${crawledNews.length}개 중)`);
 
   // 환율 정보 문자열
   const rateInfo = currentRate.usd > 0
@@ -343,7 +347,7 @@ async function analyzeWithOpenAI(news: CrawledNewsItem[], currentRate: ExchangeR
   const prompt = `당신은 20년 경력의 외환시장 전문 애널리스트입니다.
 금융기관 리서치센터장 수준의 깊이 있는 분석을 제공합니다.
 ${rateInfo}
-아래 ${crawledNews.length}개의 환율 관련 뉴스를 심층 분석하고 전문가 수준의 종합 리포트를 작성하세요.
+아래 ${newsForAnalysis.length}개의 환율 관련 뉴스를 심층 분석하고 전문가 수준의 종합 리포트를 작성하세요.
 
 [뉴스 목록]
 ${newsText}
@@ -414,7 +418,7 @@ ${newsText}
 
   return {
     ...result,
-    sources: crawledNews.slice(0, 30).map(n => ({
+    sources: newsForAnalysis.map(n => ({
       title: n.title,
       source: n.source,
       url: n.url,
