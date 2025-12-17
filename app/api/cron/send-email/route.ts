@@ -1,14 +1,23 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
 // Vercel Cron 인증
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   // Cron 인증 확인 (Vercel Cron에서 호출 시)
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    // 개발 환경에서는 허용
-    if (process.env.NODE_ENV === 'production') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
+
+  // CRON_SECRET이 설정된 경우에만 검증
+  if (process.env.CRON_SECRET && authHeader !== expectedAuth) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Vercel Cron User-Agent 검증 (프로덕션에서만)
+  if (process.env.NODE_ENV === 'production') {
+    const userAgent = request.headers.get('user-agent');
+    if (!userAgent?.includes('vercel-cron')) {
+      // 수동 호출도 허용하기 위해 경고만 로그
+      console.log('[Cron] Non-Vercel cron request:', userAgent);
     }
   }
 
