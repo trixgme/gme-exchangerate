@@ -107,6 +107,20 @@ function generateEmailHtml(analysis: {
   };
   generatedAt: string;
   newsCount: number;
+  english?: {
+    title: string;
+    summary: string;
+    detailedAnalysis: string;
+    keyPoints: string[];
+    marketFactors: { factor: string; description: string }[];
+    sentimentDescription: string;
+    exchangeOutlook: {
+      shortTerm: string;
+      midTerm: string;
+      riskFactors: string[];
+    };
+    investmentTip: string;
+  };
 }): string {
   const directionEmoji = {
     up: '📈 상승 (원화 약세)',
@@ -137,6 +151,143 @@ function generateEmailHtml(analysis: {
     if (trend === 'up') return '▲';
     if (trend === 'down') return '▼';
     return '-';
+  };
+
+  // 영어 섹션 HTML 생성
+  const generateEnglishSection = () => {
+    if (!analysis.english) return '';
+
+    const eng = analysis.english;
+
+    const keyPointsHtml = eng.keyPoints.map((point, i) =>
+      `<li style="display: flex; margin-bottom: 12px; font-size: 14px; color: #4a4a4a; line-height: 1.5;">
+        <span style="display: inline-block; width: 24px; height: 24px; background-color: #3b82f6; color: #fff; border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; margin-right: 12px; flex-shrink: 0;">${i + 1}</span>
+        <span>${point}</span>
+      </li>`
+    ).join('');
+
+    const marketFactorsHtml = eng.marketFactors.map(factor =>
+      `<div style="background-color: #f9f9f9; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; border-left: 4px solid #3b82f6;">
+        <p style="margin: 0 0 4px; font-size: 14px; font-weight: 600; color: #1a1a1a;">${factor.factor}</p>
+        <p style="margin: 0; font-size: 13px; color: #6b7280;">${factor.description}</p>
+      </div>`
+    ).join('');
+
+    const riskFactorsHtml = eng.exchangeOutlook.riskFactors.map(risk =>
+      `<li style="font-size: 13px; line-height: 1.6; margin-bottom: 4px;">${risk}</li>`
+    ).join('');
+
+    return `
+          <!-- 영어 버전 구분선 -->
+          <tr>
+            <td style="padding: 24px;">
+              <div style="border-top: 3px solid #3b82f6; margin: 0;"></div>
+              <h2 style="margin: 24px 0 0; font-size: 20px; color: #3b82f6; text-align: center;">
+                🌐 English Version
+              </h2>
+            </td>
+          </tr>
+
+          <!-- 영어 제목 & 요약 -->
+          <tr>
+            <td style="padding: 0 24px 24px;">
+              <h2 style="margin: 0 0 16px; font-size: 20px; color: #1a1a1a; line-height: 1.4;">
+                ${eng.title}
+              </h2>
+              <p style="margin: 0; font-size: 15px; color: #4a4a4a; line-height: 1.6;">
+                ${eng.summary}
+              </p>
+            </td>
+          </tr>
+
+          <!-- 영어 심층 분석 -->
+          <tr>
+            <td style="padding: 0 24px 24px;">
+              <div style="background-color: #f0f9ff; border-radius: 8px; padding: 16px; border-left: 4px solid #3b82f6;">
+                <h3 style="margin: 0 0 12px; font-size: 14px; color: #1e40af;">In-Depth Analysis</h3>
+                <p style="margin: 0; font-size: 14px; color: #1e3a5f; line-height: 1.7;">
+                  ${eng.detailedAnalysis}
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- 영어 핵심 포인트 -->
+          <tr>
+            <td style="padding: 0 24px 24px;">
+              <h3 style="margin: 0 0 16px; font-size: 16px; color: #1a1a1a;">Key Points</h3>
+              <ul style="margin: 0; padding: 0; list-style: none;">
+                ${keyPointsHtml}
+              </ul>
+            </td>
+          </tr>
+
+          <!-- 영어 시장 심리 & 환율 전망 -->
+          <tr>
+            <td style="padding: 0 24px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td width="48%" style="vertical-align: top; padding-right: 12px;">
+                    <div style="background-color: #f9f9f9; border-radius: 8px; padding: 16px;">
+                      <h3 style="margin: 0 0 12px; font-size: 14px; color: #6b7280; text-transform: uppercase;">Market Sentiment</h3>
+                      <p style="margin: 0; font-size: 13px; color: #4a4a4a; line-height: 1.5;">
+                        ${eng.sentimentDescription}
+                      </p>
+                    </div>
+                  </td>
+                  <td width="48%" style="vertical-align: top; padding-left: 12px;">
+                    <div style="background-color: #f9f9f9; border-radius: 8px; padding: 16px;">
+                      <h3 style="margin: 0 0 12px; font-size: 14px; color: #6b7280; text-transform: uppercase;">Exchange Rate Outlook</h3>
+                      <div style="margin-bottom: 12px;">
+                        <p style="margin: 0 0 4px; font-size: 12px; font-weight: 600; color: #1a1a1a;">Short-term (1 week)</p>
+                        <p style="margin: 0; font-size: 13px; color: #4a4a4a; line-height: 1.5;">
+                          ${eng.exchangeOutlook.shortTerm}
+                        </p>
+                      </div>
+                      <div>
+                        <p style="margin: 0 0 4px; font-size: 12px; font-weight: 600; color: #1a1a1a;">Mid-term (1 month)</p>
+                        <p style="margin: 0; font-size: 13px; color: #4a4a4a; line-height: 1.5;">
+                          ${eng.exchangeOutlook.midTerm}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- 영어 영향 요인 -->
+          <tr>
+            <td style="padding: 0 24px 24px;">
+              <h3 style="margin: 0 0 16px; font-size: 16px; color: #1a1a1a;">Key Market Factors</h3>
+              ${marketFactorsHtml}
+            </td>
+          </tr>
+
+          <!-- 영어 리스크 요인 -->
+          <tr>
+            <td style="padding: 0 24px 24px;">
+              <div style="background-color: #fef3c7; border-radius: 8px; padding: 16px; border-left: 4px solid #f59e0b;">
+                <h3 style="margin: 0 0 12px; font-size: 14px; color: #92400e;">⚠️ Risk Factors to Watch</h3>
+                <ul style="margin: 0; padding: 0 0 0 20px; color: #92400e;">
+                  ${riskFactorsHtml}
+                </ul>
+              </div>
+            </td>
+          </tr>
+
+          <!-- 영어 투자 팁 -->
+          <tr>
+            <td style="padding: 0 24px 24px;">
+              <div style="background-color: #1a1a1a; border-radius: 8px; padding: 16px; color: #ffffff;">
+                <h3 style="margin: 0 0 12px; font-size: 14px; color: #ffffff;">💡 Investment Tip</h3>
+                <p style="margin: 0; font-size: 14px; line-height: 1.6; opacity: 0.9;">
+                  ${eng.investmentTip}
+                </p>
+              </div>
+            </td>
+          </tr>`;
   };
 
   // 환율 정보 HTML 생성
@@ -386,14 +537,17 @@ function generateEmailHtml(analysis: {
             </td>
           </tr>
 
+          ${generateEnglishSection()}
+
           <!-- 푸터 -->
           <tr>
             <td style="background-color: #f9f9f9; padding: 20px 24px; text-align: center;">
               <p style="margin: 0 0 8px; font-size: 12px; color: #6b7280;">
-                분석된 뉴스: ${analysis.newsCount}개
+                분석된 뉴스: ${analysis.newsCount}개 | Analyzed news: ${analysis.newsCount} articles
               </p>
               <p style="margin: 0; font-size: 11px; color: #9ca3af;">
-                본 분석은 AI가 생성한 것으로, 투자 판단의 참고자료로만 활용하시기 바랍니다.
+                본 분석은 AI가 생성한 것으로, 투자 판단의 참고자료로만 활용하시기 바랍니다.<br/>
+                This analysis is AI-generated and should be used for reference only.
               </p>
             </td>
           </tr>

@@ -401,7 +401,44 @@ ${newsText}
       "주의해야 할 리스크 요인 3"
     ]
   },
-  "investmentTip": "개인 투자자나 환전을 고려하는 사람들을 위한 실용적인 조언 (3-4문장)"
+  "investmentTip": "개인 투자자나 환전을 고려하는 사람들을 위한 실용적인 조언 (3-4문장)",
+  "english": {
+    "title": "English translation of the title",
+    "summary": "English translation of the summary (4-5 sentences)",
+    "detailedAnalysis": "English translation of the detailed analysis (8-10 sentences)",
+    "keyPoints": [
+      "English key point 1",
+      "English key point 2",
+      "English key point 3",
+      "English key point 4",
+      "English key point 5"
+    ],
+    "marketFactors": [
+      {
+        "factor": "Factor name in English",
+        "description": "English description of the factor's impact"
+      },
+      {
+        "factor": "Second factor in English",
+        "description": "English description"
+      },
+      {
+        "factor": "Third factor in English",
+        "description": "English description"
+      }
+    ],
+    "sentimentDescription": "English description of market sentiment (3-4 sentences)",
+    "exchangeOutlook": {
+      "shortTerm": "English short-term outlook (1 week, 3-4 sentences)",
+      "midTerm": "English mid-term outlook (1 month, 3-4 sentences)",
+      "riskFactors": [
+        "English risk factor 1",
+        "English risk factor 2",
+        "English risk factor 3"
+      ]
+    },
+    "investmentTip": "English investment tip (3-4 sentences)"
+  }
 }
 
 반드시 JSON 형식으로만 응답하세요.`;
