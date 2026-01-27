@@ -4,7 +4,7 @@ import OpenAI from 'openai';
 import { unstable_cache } from 'next/cache';
 
 const NAVER_API_URL = 'https://openapi.naver.com/v1/search/news.json';
-const SEARCH_KEYWORDS = ['환율', '달러', '원화', '금리', '한국은행'];
+const SEARCH_KEYWORDS = ['환율', '달러', '원화', '금리', '한국은행', '원달러', '원위안', '개입', '달러엔', '트럼프'];
 const CACHE_TAG = 'exchange-rate-analysis';
 
 // ========================================
@@ -291,7 +291,7 @@ async function fetchNews(query: string): Promise<NaverNewsItem[]> {
 
   const params = new URLSearchParams({
     query,
-    display: '50',
+    display: '20',
     start: '1',
     sort: 'date',
   });
