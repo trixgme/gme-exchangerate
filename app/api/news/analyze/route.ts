@@ -392,7 +392,7 @@ async function analyzeWithClaude(news: CrawledNewsItem[], currentRate: ExchangeR
   // 크롤링된 뉴스만 필터링
   const crawledNews = news.filter(n => n.isCrawled && n.content);
 
-  // Claude Sonnet 4.6 1M 토큰 지원 (100개 뉴스, 본문 3000자)
+  // Claude Haiku 4.5 200K 토큰 지원 (100개 뉴스, 본문 3000자 → 약 86K 토큰으로 충분히 수용)
   const MAX_NEWS_FOR_ANALYSIS = 100;
   const MAX_CONTENT_LENGTH = 3000;
 
@@ -402,7 +402,7 @@ async function analyzeWithClaude(news: CrawledNewsItem[], currentRate: ExchangeR
     .map((n, i) => `[뉴스 ${i + 1}] ${n.title}\n${n.content.substring(0, MAX_CONTENT_LENGTH)}`)
     .join('\n\n');
 
-  console.log(`[Claude Sonnet] 분석 시작 - ${newsForAnalysis.length}개 뉴스 (전체 ${crawledNews.length}개 중)`);
+  console.log(`[Claude Haiku] 분석 시작 - ${newsForAnalysis.length}개 뉴스 (전체 ${crawledNews.length}개 중)`);
 
   // 환율 정보 문자열
   const rateInfo = currentRate.usd > 0
@@ -517,11 +517,10 @@ ${newsText}
 
 반드시 JSON 형식으로만 응답하세요.`;
 
-  // Claude Sonnet 4.6 + 구조화 출력(Zod 스키마)
-  // thinking 미사용: 뉴스 요약→JSON 작업에는 불필요하며, 대용량 입력 시 지연이 급증해
-  // Vercel 함수 타임아웃(300초)을 초과할 위험이 있어 제외 (GPT-4o와 동일한 non-thinking 동작)
+  // Claude Haiku 4.5 + 구조화 출력(Zod 스키마)
+  // Sonnet 대비 약 1/3 비용. thinking/effort 미사용(Haiku 미지원이며 요약→JSON 작업엔 불필요)
   const message = await anthropic.messages.parse({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-haiku-4-5',
     max_tokens: 16000,
     system: systemPrompt,
     messages: [{ role: 'user', content: prompt }],
@@ -534,7 +533,7 @@ ${newsText}
   if (!result) {
     throw new Error('Claude 분석 결과 파싱 실패 (parsed_output is null)');
   }
-  console.log(`[Claude Sonnet] 분석 완료`);
+  console.log(`[Claude Haiku] 분석 완료`);
 
   return {
     ...result,
