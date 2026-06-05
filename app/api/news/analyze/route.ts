@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
+import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
+import { z } from 'zod';
 import { unstable_cache } from 'next/cache';
+
+// Claude 분석은 뉴스 50여 개를 한 번에 처리해 ~3분이 소요될 수 있어 함수 타임아웃을 최대치(300초)로 설정
+export const maxDuration = 300;
 
 const NAVER_API_URL = 'https://openapi.naver.com/v1/search/news.json';
 const SEARCH_KEYWORDS = ['환율', '달러', '원화', '금리', '한국은행', '원달러', '원위안', '개입', '달러엔', '트럼프'];
@@ -78,6 +83,23 @@ interface AnalysisResult {
     riskFactors: string[];
   };
   investmentTip: string;
+  english: {
+    title: string;
+    summary: string;
+    detailedAnalysis: string;
+    keyPoints: string[];
+    marketFactors: {
+      factor: string;
+      description: string;
+    }[];
+    sentimentDescription: string;
+    exchangeOutlook: {
+      shortTerm: string;
+      midTerm: string;
+      riskFactors: string[];
+    };
+    investmentTip: string;
+  };
   sources: {
     title: string;
     source: string;
@@ -88,6 +110,57 @@ interface AnalysisResult {
   generatedAt: string;
   newsCount: number;
 }
+
+// Claude 구조화 출력용 Zod 스키마 (분석 본문 — sources/generatedAt/newsCount는 코드에서 채움)
+const AnalysisSchema = z.object({
+  title: z.string(),
+  summary: z.string(),
+  detailedAnalysis: z.string(),
+  keyPoints: z.array(z.string()),
+  marketFactors: z.array(
+    z.object({
+      factor: z.string(),
+      impact: z.enum(['positive', 'negative', 'neutral']),
+      description: z.string(),
+    })
+  ),
+  sentiment: z.object({
+    overall: z.enum(['positive', 'negative', 'neutral']),
+    score: z.number(),
+    description: z.string(),
+    breakdown: z.object({
+      positive: z.number(),
+      negative: z.number(),
+      neutral: z.number(),
+    }),
+  }),
+  exchangeOutlook: z.object({
+    direction: z.enum(['up', 'down', 'stable', 'uncertain']),
+    shortTerm: z.string(),
+    midTerm: z.string(),
+    riskFactors: z.array(z.string()),
+  }),
+  investmentTip: z.string(),
+  english: z.object({
+    title: z.string(),
+    summary: z.string(),
+    detailedAnalysis: z.string(),
+    keyPoints: z.array(z.string()),
+    marketFactors: z.array(
+      z.object({
+        factor: z.string(),
+        description: z.string(),
+      })
+    ),
+    sentimentDescription: z.string(),
+    exchangeOutlook: z.object({
+      shortTerm: z.string(),
+      midTerm: z.string(),
+      riskFactors: z.array(z.string()),
+    }),
+    investmentTip: z.string(),
+  }),
+});
 
 // HTML 태그 제거 함수
 function stripHtml(html: string): string {
@@ -311,15 +384,15 @@ async function fetchNews(query: string): Promise<NaverNewsItem[]> {
   return data.items;
 }
 
-async function analyzeWithOpenAI(news: CrawledNewsItem[], currentRate: ExchangeRateInfo): Promise<Omit<AnalysisResult, 'currentRate'>> {
-  const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+async function analyzeWithClaude(news: CrawledNewsItem[], currentRate: ExchangeRateInfo): Promise<Omit<AnalysisResult, 'currentRate'>> {
+  const anthropic = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
   });
 
   // 크롤링된 뉴스만 필터링
   const crawledNews = news.filter(n => n.isCrawled && n.content);
 
-  // GPT-4o 128K 토큰 지원 → 90% 활용 (100개 뉴스, 본문 3000자)
+  // Claude Sonnet 4.6 1M 토큰 지원 (100개 뉴스, 본문 3000자)
   const MAX_NEWS_FOR_ANALYSIS = 100;
   const MAX_CONTENT_LENGTH = 3000;
 
@@ -329,7 +402,7 @@ async function analyzeWithOpenAI(news: CrawledNewsItem[], currentRate: ExchangeR
     .map((n, i) => `[뉴스 ${i + 1}] ${n.title}\n${n.content.substring(0, MAX_CONTENT_LENGTH)}`)
     .join('\n\n');
 
-  console.log(`[OpenAI GPT-4o] 분석 시작 - ${newsForAnalysis.length}개 뉴스 (전체 ${crawledNews.length}개 중)`);
+  console.log(`[Claude Sonnet] 분석 시작 - ${newsForAnalysis.length}개 뉴스 (전체 ${crawledNews.length}개 중)`);
 
   // 환율 정보 문자열
   const rateInfo = currentRate.usd > 0
@@ -344,9 +417,10 @@ async function analyzeWithOpenAI(news: CrawledNewsItem[], currentRate: ExchangeR
 `
     : '';
 
-  const prompt = `당신은 20년 경력의 외환시장 전문 애널리스트입니다.
-금융기관 리서치센터장 수준의 깊이 있는 분석을 제공합니다.
-${rateInfo}
+  const systemPrompt = `당신은 20년 경력의 외환시장 전문 애널리스트입니다.
+금융기관 리서치센터장 수준의 깊이 있는 분석을 제공합니다.`;
+
+  const prompt = `${rateInfo}
 아래 ${newsForAnalysis.length}개의 환율 관련 뉴스를 심층 분석하고 전문가 수준의 종합 리포트를 작성하세요.
 
 [뉴스 목록]
@@ -443,15 +517,24 @@ ${newsText}
 
 반드시 JSON 형식으로만 응답하세요.`;
 
-  // GPT-4o 사용 (현재 가장 강력한 모델)
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o',
+  // Claude Sonnet 4.6 + 구조화 출력(Zod 스키마)
+  // thinking 미사용: 뉴스 요약→JSON 작업에는 불필요하며, 대용량 입력 시 지연이 급증해
+  // Vercel 함수 타임아웃(300초)을 초과할 위험이 있어 제외 (GPT-4o와 동일한 non-thinking 동작)
+  const message = await anthropic.messages.parse({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 16000,
+    system: systemPrompt,
     messages: [{ role: 'user', content: prompt }],
-    response_format: { type: 'json_object' },
+    output_config: {
+      format: zodOutputFormat(AnalysisSchema),
+    },
   });
 
-  const result = JSON.parse(completion.choices[0].message.content || '{}');
-  console.log(`[OpenAI GPT-4o] 분석 완료`);
+  const result = message.parsed_output;
+  if (!result) {
+    throw new Error('Claude 분석 결과 파싱 실패 (parsed_output is null)');
+  }
+  console.log(`[Claude Sonnet] 분석 완료`);
 
   return {
     ...result,
@@ -524,15 +607,15 @@ async function performAnalysis(): Promise<AnalysisResult> {
   const crawledCount = crawledNews.filter(n => n.isCrawled).length;
   console.log(`[Step 2] 완료 - ${crawledCount}/${crawledNews.length}개 크롤링 (${Date.now() - crawlStartTime}ms)`);
 
-  // 3. OpenAI 분석 (환율 정보 포함)
-  console.log(`[Step 3] OpenAI 분석 중...`);
+  // 3. Claude 분석 (환율 정보 포함)
+  console.log(`[Step 3] Claude 분석 중...`);
   const analyzeStartTime = Date.now();
 
-  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your_openai_api_key_here') {
-    throw new Error('OpenAI API key not configured');
+  if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'your_anthropic_api_key_here') {
+    throw new Error('Anthropic API key not configured');
   }
 
-  const analysis = await analyzeWithOpenAI(crawledNews, currentRate);
+  const analysis = await analyzeWithClaude(crawledNews, currentRate);
   console.log(`[Step 3] 완료 - (${Date.now() - analyzeStartTime}ms)`);
 
   const totalDuration = Date.now() - startTime;
