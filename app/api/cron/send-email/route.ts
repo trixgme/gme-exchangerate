@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
+// 분석 API(maxDuration=300)를 내부 fetch로 호출해 응답을 기다린 뒤 이메일을 발송하므로,
+// cron 함수도 동일하게 최대치(300초)로 설정해 분석 도중 함수가 강제 종료되지 않도록 한다.
+export const maxDuration = 300;
+
 // Vercel Cron 인증
 export async function GET(request: NextRequest) {
   // Cron 인증 확인 (Vercel Cron에서 호출 시)

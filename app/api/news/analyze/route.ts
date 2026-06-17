@@ -120,12 +120,13 @@ const AnalysisSchema = z.object({
   marketFactors: z.array(
     z.object({
       factor: z.string(),
-      impact: z.enum(['positive', 'negative', 'neutral']),
+      // LLM이 enum 밖 값(빈 문자열·한글·mixed 등)을 내도 분석 전체가 무효화되지 않도록 폴백
+      impact: z.enum(['positive', 'negative', 'neutral']).catch('neutral'),
       description: z.string(),
     })
   ),
   sentiment: z.object({
-    overall: z.enum(['positive', 'negative', 'neutral']),
+    overall: z.enum(['positive', 'negative', 'neutral']).catch('neutral'),
     score: z.number(),
     description: z.string(),
     breakdown: z.object({
@@ -135,7 +136,7 @@ const AnalysisSchema = z.object({
     }),
   }),
   exchangeOutlook: z.object({
-    direction: z.enum(['up', 'down', 'stable', 'uncertain']),
+    direction: z.enum(['up', 'down', 'stable', 'uncertain']).catch('uncertain'),
     shortTerm: z.string(),
     midTerm: z.string(),
     riskFactors: z.array(z.string()),
@@ -514,6 +515,12 @@ ${newsText}
     "investmentTip": "English investment tip (3-4 sentences)"
   }
 }
+
+⚠️ enum 필드 필수 규칙 (위반 시 분석 전체가 무효화됩니다):
+- "marketFactors[].impact": 반드시 "positive", "negative", "neutral" 중 하나만 사용하세요.
+- "sentiment.overall": 반드시 "positive", "negative", "neutral" 중 하나만 사용하세요.
+- "exchangeOutlook.direction": 반드시 "up", "down", "stable", "uncertain" 중 하나만 사용하세요.
+- 위 필드에는 한글·공백·빈 문자열·기타 표현을 절대 쓰지 말고, 영문 소문자로 정확히 표기하세요.
 
 반드시 JSON 형식으로만 응답하세요.`;
 
